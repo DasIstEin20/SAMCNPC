@@ -24,6 +24,26 @@ This is the project navigation hub. All four Git submodules are siblings here.
 The component repositories do not contain nested dependency submodules.
 The game build produces **exactly three first-party mod JARs**; Studio is a separate desktop tool.
 
+## Alpha downloads · Pobierz alpha · Alpha herunterladen
+
+**`v0.1.0-alpha.20260928`** — Minecraft **1.20.1**, Forge **47.4.21**, Java **17**,
+Kotlin for Forge **4.12.0**. Each prerelease includes its mod JAR and `SHA256SUMS.txt`.
+
+| Module | Download / Pobierz / Herunterladen | Required SAMCNPC modules |
+|---|---|---|
+| Core | [Core alpha](https://github.com/DasIstEin20/SAMCNPC_Core/releases/tag/v0.1.0-alpha.20260928) | — |
+| Behavior | [Behavior alpha](https://github.com/DasIstEin20/SAMCNPC_Behavior/releases/tag/v0.1.0-alpha.20260928) | Core |
+| LLM | [LLM alpha](https://github.com/DasIstEin20/SAMCNPC_LLM/releases/tag/v0.1.0-alpha.20260928) | Core + Behavior |
+
+Install matching JARs and dependencies in `mods/`. LLM is optional and disabled by default.
+This is an early alpha; begin with a disposable world.
+
+Zgodne JAR-y i zależności umieść w `mods/`. LLM jest opcjonalny i domyślnie wyłączony.
+To wczesna alpha — zacznij od jednorazowego świata.
+
+Passende JARs und Abhängigkeiten in `mods/` ablegen. LLM ist optional und standardmäßig deaktiviert.
+Dies ist eine frühe Alpha; zunächst eine entbehrliche Testwelt verwenden.
+
 ```text
 SAMCNPC/
 ├── samcnpc-core/       physical capabilities and public API
@@ -90,7 +110,7 @@ Use matching module versions. Core is required; Behavior adds autonomous work;
 LLM is optional. Studio does not go into the Minecraft `mods` directory.
 
 1. Prepare a Forge 1.20.1 instance with Java 17 and the required Kotlin for Forge runtime.
-2. Build the source below and place the selected SAMCNPC mod JARs in the instance's `mods/` folder.
+2. Download the matching alpha JARs above, or build the source below, and place the selected mod JARs in the instance's `mods/` folder.
 3. Start a disposable test world or server. Use `/samcnpc` help and command completion
    to summon and inspect an NPC before assigning work.
 4. Start Studio with `studio/START_WINDOWS.bat`, or `python studio/studio.py` with Tkinter available.

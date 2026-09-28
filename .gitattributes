@@ -1,0 +1,10 @@
+# Generated distributions are binary, even when their first kilobytes are ASCII.
+*.pdf binary
+*.png binary
+*.zip binary
+*.jar binary
+
+# Keep command launchers portable across Git checkout settings.
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf

@@ -1,0 +1,208 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '6.0.54' apply false
+    id 'org.jetbrains.kotlin.jvm' version '2.2.21' apply false
+}
+
+// Each full run gets fresh restart fixtures; direct smoke invocations retain their existing defaults.
+ext.fullVerificationId = gradle.startParameter.taskNames.any { it.tokenize(':').last() == 'verifyAll' }
+    ? "all-${System.currentTimeMillis()}" : null
+
+allprojects {
+    group = providers.gradleProperty('mod_group').get()
+    version = providers.gradleProperty('mod_version').get()
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'KotlinForForge'
+            url = 'https://thedarkcolour.github.io/KotlinForForge/'
+            content { includeGroup 'thedarkcolour' }
+        }
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 17
+        options.encoding = 'UTF-8'
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile).configureEach {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+            freeCompilerArgs.add('-Xjvm-default=all')
+        }
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    tasks.withType(Jar).configureEach {
+        archiveBaseName = project.name
+        manifest {
+            attributes([
+                'Specification-Title': project.name,
+                'Specification-Vendor': 'SAMCNPC',
+                'Specification-Version': '1',
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version,
+                'Implementation-Vendor': 'SAMCNPC'
+            ])
+        }
+    }
+}
+
+// The root composes test installations; neither lower module gains an LLM dependency.
+// Full verification covers two-mod GameTests and three-mod catalog save/load/client scenes.
+def operationsWithLlmShell = providers.gradleProperty('operationsWithLlmShell')
+    .orElse(rootProject.ext.fullVerificationId != null ? 'true' : 'false').get()
+if (!(operationsWithLlmShell in ['true', 'false'])) throw new GradleException('operationsWithLlmShell must be true or false')
+if (operationsWithLlmShell == 'true') {
+    def behaviorProject = project(':samcnpc-behavior')
+    behaviorProject.pluginManager.withPlugin('net.minecraftforge.gradle') {
+        behaviorProject.extensions.getByName('minecraft').runs.configureEach { run ->
+            if (run.name in ['clientOperationsSmoke', 'serverOperationsSmokeSave', 'serverOperationsSmokeLoad']) {
+                run.property 'samcnpc.verificationModIds', 'samcnpc_core,samcnpc_behavior,samcnpc_llm'
+                run.mods { samcnpc_llm { source project(':samcnpc-llm').sourceSets.main } }
+            }
+        }
+    }
+}
+
+tasks.register('runClientAll') {
+    group = 'forge runs'
+    description = 'Launches the dev client with all three SAMCNPC modules.'
+    dependsOn(':samcnpc-llm:runClient')
+}
+
+tasks.register('runServerAll') {
+    group = 'forge runs'
+    description = 'Launches the dedicated dev server with all three SAMCNPC modules.'
+    dependsOn(':samcnpc-llm:runServer')
+}
+
+tasks.register('verifyProductionKotlin') {
+    group = 'verification'
+    description = 'Rejects hand-written Java production sources in the three SAMCNPC modules.'
+    doLast {
+        def javaSources = fileTree(projectDir) {
+            include 'samcnpc-*/src/main/**/*.java'
+        }.files
+        if (!javaSources.empty) {
+            throw new GradleException("Production source must be Kotlin. Found Java files: ${javaSources.join(', ')}")
+        }
+    }
+}
+
+subprojects {
+    tasks.named('check').configure {
+        dependsOn(rootProject.tasks.named('verifyProductionKotlin'))
+    }
+}
+
+
+// One sequential verification run; ordinary interactive runClient/runServer are not test drivers.
+def runtimeVerification = [
+    ':samcnpc-core:runGameTestServer',
+    ':samcnpc-behavior:runGameTestServer',
+    ':samcnpc-core:runChunkSmokeSave',
+    ':samcnpc-core:runChunkSmokeLoad',
+    ':samcnpc-core:runRespawnSmokeSave',
+    ':samcnpc-core:runRespawnSmokeLoad',
+    ':samcnpc-behavior:runOperationsSmokeSave',
+    ':samcnpc-behavior:runOperationsSmokeLoad',
+    ':samcnpc-behavior:runOperationsLifecycle',
+    ':samcnpc-core:runClientAnimationSmoke',
+    ':samcnpc-core:runClientSkinSmoke',
+    ':samcnpc-behavior:runClientConfigSmoke',
+    ':samcnpc-behavior:runClientConfigSmokeBare',
+    ':samcnpc-behavior:runClientConfigSmokeDurable',
+    ':samcnpc-behavior:runClientLumberjackSmoke',
+    ':samcnpc-behavior:runClientTaskSmoke',
+    ':samcnpc-behavior:runClientFollowSmoke',
+    ':samcnpc-behavior:runClientRetaliationSmoke',
+    ':samcnpc-behavior:runClientTaskCombatSmoke',
+    ':samcnpc-behavior:runClientForestRepairSmoke',
+    ':samcnpc-behavior:runClientOperationsSmoke',
+    ':samcnpc-llm:runClientLoadingSmoke',
+    ':samcnpc-llm:runServerLoadingSmoke',
+    ':samcnpc-llm:runClientGoalsSmoke',
+    ':samcnpc-llm:runServerGoalsSaveSmoke',
+    ':samcnpc-llm:runServerGoalsLoadSmoke',
+    ':samcnpc-llm:runServerSupervisorSmoke',
+    ':samcnpc-llm:runClientSupervisorSmoke',
+    ':samcnpc-llm:runServerSupervisorFaultsSmoke',
+    ':samcnpc-llm:runClientSupervisorFaultsSmoke',
+    ':samcnpc-llm:runServerSupervisorSaveSmoke',
+    ':samcnpc-llm:runServerSupervisorLoadSmoke',
+    ':samcnpc-llm:runServerPlannerSmoke',
+    ':samcnpc-llm:runClientPlannerSmoke',
+    ':samcnpc-llm:runServerPlannerSaveSmoke',
+    ':samcnpc-llm:runServerPlannerLoadSmoke',
+    ':samcnpc-behavior:runOperationsPerformance',
+    ':samcnpc-behavior:runOperationsSoak',
+]
+
+tasks.register('verifySourceBoundaries', Exec) {
+    group = 'verification'
+    commandLine 'python', '-X', 'utf8', 'scripts/verify_boundaries.py'
+}
+tasks.register('verifyCoreBoundary', Exec) {
+    group = 'verification'
+    commandLine 'python', '-X', 'utf8', 'samcnpc-core/tools/check_core_boundary.py'
+}
+tasks.register('testDistributionGuard', Exec) {
+    group = 'verification'
+    commandLine 'python', '-X', 'utf8', '-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_*.py'
+}
+tasks.register('verifyDistribution', Exec) {
+    group = 'verification'
+    dependsOn subprojects.collect { "${it.path}:reobfJar" }
+    commandLine 'python', '-X', 'utf8', 'scripts/verify_distribution.py'
+}
+tasks.register('verifyAll') {
+    group = 'verification'
+    description = 'Runs all automated tests, restart pairs and client/server smoke scenarios sequentially.'
+    dependsOn 'verifySourceBoundaries', 'verifyCoreBoundary', 'testDistributionGuard', 'verifyDistribution'
+    dependsOn subprojects.collect { "${it.path}:build" }
+    dependsOn runtimeVerification
+}
+
+subprojects {
+    tasks.named('build').configure { mustRunAfter ':verifySourceBoundaries', ':verifyCoreBoundary', ':testDistributionGuard' }
+}
+// ForgeGradle registers run tasks late; configure them lazily as the modules already do.
+runtimeVerification.eachWithIndex { path, index ->
+    def separator = path.lastIndexOf(':')
+    def module = project(path.substring(0, separator))
+    def taskName = path.substring(separator + 1)
+    def previous = subprojects.collect { "${it.path}:build" } + runtimeVerification.take(index)
+    module.tasks.matching { it.name == taskName }.configureEach { mustRunAfter previous }
+}
+tasks.named('verifyDistribution').configure { mustRunAfter runtimeVerification }
+
+// A flaky retry can fail after vanilla's original batch tracker has already advanced. Its final
+// aggregate/exit may still be green; an explicit required failure in this run always fails the gate.
+subprojects {
+    tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+        doLast {
+            def report = new File(workingDir, 'logs/latest.log')
+            if (!report.isFile()) throw new GradleException("GameTest result log is missing: ${report}")
+            def failures = []
+            report.eachLine('UTF-8') { line ->
+                if (line.contains('/ERROR]') && line.contains('LogTestReporter') && line.contains(' failed!')) failures.add(line)
+            }
+            if (!failures.isEmpty()) throw new GradleException("${failures.size()} required GameTest failure(s) despite runner exit: ${failures.first()}. See ${report}")
+        }
+    }
+}

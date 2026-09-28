@@ -1,0 +1,12 @@
+[submodule "samcnpc-core"]
+	path = samcnpc-core
+	url = https://github.com/DasIstEin20/SAMCNPC_Core.git
+[submodule "samcnpc-behavior"]
+	path = samcnpc-behavior
+	url = https://github.com/DasIstEin20/SAMCNPC_Behavior.git
+[submodule "samcnpc-llm"]
+	path = samcnpc-llm
+	url = https://github.com/DasIstEin20/SAMCNPC_LLM.git
+[submodule "studio"]
+	path = studio
+	url = https://github.com/DasIstEin20/SAMCNPC_Behavior_Studio.git
